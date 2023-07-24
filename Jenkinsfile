@@ -38,9 +38,9 @@ pipeline {
                 sh "export TF_VAR_region='${env.aws_region}' && export TF_VAR_access_key='${env.access_key}' && export TF_VAR_secret_key='${env.secret_key}' && terraform plan -var-file terraform.tfvars -lock=false" 
             }
         }
-        stage('Terraform Destroy') {
+        stage ('Terraform Apply'){
             steps {
-                sh 'terraform destroy -auto-approve -var="access_key=${ACCESS_KEY_ID}" -var="secret_key=${SECRET_ACCESS_KEY}" -lock=false'
+                sh "export TF_VAR_region='${env.aws_region}' && export TF_VAR_access_key='${env.access_key}' && export TF_VAR_secret_key='${env.secret_key}' && terraform apply -var-file terraform-dev.tfvars -auto-approve -lock=false"
             }
         }
     }
