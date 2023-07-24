@@ -17,6 +17,6 @@ resource "aws_eip" "ip" {
 
 resource "aws_nat_gateway" "jenkins_nat" {
   allocation_id = aws_eip.ip.id
-  subnet_id     = aws_subnet.dpt2_pub_sub1.id
+  subnet_id     = aws_subnet.jenkins_pub_sub1.id
 
 }
