@@ -1,70 +1,27 @@
-pipeline {
-  agent  any
+properties([ parameters([
+  string( name: 'AWS_ACCESS_KEY_ID', defaultValue: ''),
+  string( name: 'AWS_SECRET_ACCESS_KEY', defaultValue: ''),
+  string( name: 'AWS_REGION', defaultValue: 'us-east-1'),
+]), pipelineTriggers([]) ])// Environment Variables.
+env.access_key = AWS_ACCESS_KEY_ID
+env.secret_key = AWS_SECRET_ACCESS_KEY
+env.region = AWS_REGIONpipeline {
+    agent any
     stages {
-
-      stage ('Checkout SCM'){
-        steps {
-          checkout([$class: 'GitSCM', branches: [[name: '*/main']], doGenerateSubmoduleConfigurations: false, extensions: [], submoduleCfg: [], userRemoteConfigs: [[credentialsId: 'a9e88285-0aec-49e1-858e-4f2dc11442a9', url: 'https://github.com/anilkumartechtiera/fiserv-vpc-demo.git']]])
-        }
-      }
-
-     
-      stage('Set Terraform path') {
-       steps {
-         script {
-            def tfHome = tool name: 'terraform'
-            env.PATH = "${tfHome}:${env.PATH}"
-         }
-     }
-  }
-  stage('terraform init') {
- 
-       steps {
-           dir ("vpc") {
-                script {
-                    withAWS(roleAccount:'965510773901', role:'TerraformAssumeRole', useNode: true) {
-                    sh 'terraform init -no-color'
-                    }
-             }
-           }
-        }
-      }
-
-  stage('terraform Plan') {
- 
-       steps {
-           dir ("vpc") {
-            
-               script {
-                    withAWS(roleAccount:'965510773901', role:'TerraformAssumeRole', useNode: true) {
-                    sh 'terraform plan -no-color -out=plan.out'
-                    }
-               }
+        stage ('Terraform Init'){
+            steps {
+                sh "export TF_VAR_region='${env.aws_region}' && export TF_VAR_access_key='${env.access_key}' && export TF_VAR_secret_key='${env.secret_key}' && terraform init"
             }
         }
-      }
-
-  stage('Waiting for Approvals') {
-            
-      steps{
-          input('Plan Validated? Please approve to create VPC Network in AWS?')
-			  }
-      }    
-
-  stage('terraform Apply') {
- 
-       steps {
-           dir ("vpc") {
-            
-              script {
-                    withAWS(roleAccount:'965510773901', role:'TerraformAssumeRole', useNode: true) {
-                    sh 'terraform apply -no-color -auto-approve plan.out'
-                    sh "terraform output"
-                    }
-              }
-            
-           }
+        stage ('Terraform Plan'){
+            steps {
+                sh "export TF_VAR_region='${env.aws_region}' && export TF_VAR_access_key='${env.access_key}' && export TF_VAR_secret_key='${env.secret_key}' && terraform plan -var-file terraform-dev.tfvars" 
+            }
         }
-      }
-   }
+        stage ('Terraform Apply & Deploy Docker Image on Webserver'){
+            steps {
+                sh "export TF_VAR_region='${env.aws_region}' && export TF_VAR_access_key='${env.access_key}' && export TF_VAR_secret_key='${env.secret_key}' && terraform apply -var-file terraform-dev.tfvars -auto-approve"
+            }
+        }
+    }
 }
