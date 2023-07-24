@@ -1,27 +1,37 @@
-properties([ parameters([
-  string( name: 'AWS_ACCESS_KEY_ID', defaultValue: ''),
-  string( name: 'AWS_SECRET_ACCESS_KEY', defaultValue: ''),
-  string( name: 'AWS_REGION', defaultValue: 'us-east-1'),
-]), pipelineTriggers([]) ])// Environment Variables.
-env.access_key = AWS_ACCESS_KEY_ID
-env.secret_key = AWS_SECRET_ACCESS_KEY
-env.region = AWS_REGIONpipeline {
+pipeline {
     agent any
+    
+    environment {
+        ACCESS_KEY_ID = credentials('AWS_ACCESS_KEY_ID')
+        SECRET_ACCESS_KEY = credentials('AWS_SECRET_ACCESS_KEY')
+        GITHUB_PASSWORD = credentials('GITHUB_REPO_PASSWORD')
+    }
+
     stages {
-        stage ('Terraform Init'){
+        stage('Checkout Code') {
             steps {
-                sh "export TF_VAR_region='${env.aws_region}' && export TF_VAR_access_key='${env.access_key}' && export TF_VAR_secret_key='${env.secret_key}' && terraform init"
+                // Replace 'your-github-username' and 'your-repo-name' with your actual GitHub repository details
+                git credentialsId: 'a9e88285-0aec-49e1-858e-4f2dc11442a9', url: 'https://github.com/anilkumartechtiera/fiserv-vpc-demo.git'
             }
         }
-        stage ('Terraform Plan'){
+        
+        stage('Terraform Plan') {
             steps {
-                sh "export TF_VAR_region='${env.aws_region}' && export TF_VAR_access_key='${env.access_key}' && export TF_VAR_secret_key='${env.secret_key}' && terraform plan -var-file terraform-dev.tfvars" 
+                sh 'terraform init'
+                sh 'terraform plan -var="access_key=${ACCESS_KEY_ID}" -var="secret_key=${SECRET_ACCESS_KEY}"'
             }
         }
-        stage ('Terraform Apply & Deploy Docker Image on Webserver'){
+        
+        stage('Terraform Apply') {
+            when {
+                // Add any condition to control when to execute the apply stage
+                // For example, manually approve after the plan stage
+                expression { return true }
+            }
             steps {
-                sh "export TF_VAR_region='${env.aws_region}' && export TF_VAR_access_key='${env.access_key}' && export TF_VAR_secret_key='${env.secret_key}' && terraform apply -var-file terraform-dev.tfvars -auto-approve"
+                sh 'terraform apply -auto-approve -var="access_key=${ACCESS_KEY_ID}" -var="secret_key=${SECRET_ACCESS_KEY}"'
             }
         }
     }
 }
+
