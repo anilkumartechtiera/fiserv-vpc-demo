@@ -1,0 +1,50 @@
+properties([ parameters([
+  string( name: 'AWS_ACCESS_KEY_ID', defaultValue: ''),
+  string( name: 'AWS_SECRET_ACCESS_KEY', defaultValue: ''),
+  string( name: 'AWS_REGION', defaultValue: 'us-east-1'),
+]), pipelineTriggers([]) ])
+
+// Environment Variables.
+env.access_key = AWS_ACCESS_KEY_ID
+env.secret_key = AWS_SECRET_ACCESS_KEY
+env.region = AWS_REGION
+
+pipeline {
+  agent  any
+    stages {
+
+      stage ('Checkout SCM'){
+        steps {
+          checkout([$class: 'GitSCM', branches: [[name: '*/main']], doGenerateSubmoduleConfigurations: false, extensions: [], submoduleCfg: [], userRemoteConfigs: [[credentialsId: 'a9e88285-0aec-49e1-858e-4f2dc11442a9', url: 'https://github.com/anilkumartechtiera/fiserv-vpc-demo.git']]])
+        }
+      }
+
+     
+      stage('Set Terraform path') {
+       steps {
+         script {
+            def tfHome = tool name: 'terraform'
+            env.PATH = "${tfHome}:${env.PATH}"
+         }
+     }
+  }
+        stage ('Terraform Init'){
+            steps {
+                sh "export TF_VAR_region='${env.aws_region}' && export TF_VAR_access_key='${env.access_key}' && export TF_VAR_secret_key='${env.secret_key}' && terraform init"
+            }
+        }
+        stage ('Terraform Plan'){
+            steps {
+                sh "export TF_VAR_region='${env.aws_region}' && export TF_VAR_access_key='${env.access_key}' && export TF_VAR_secret_key='${env.secret_key}' && terraform plan -var-file terraform.tfvars -lock=false" 
+            }
+        }
+        stage('Terraform Destroy') {
+            steps {
+                dir("${env.TF_WORKING_DIR}") {
+                    input "Destroy infrastructure? (Click 'Proceed' to destroy or 'Abort' to skip)"
+                    sh 'terraform destroy -var-file=../${env.TFVARS_FILE} -auto-approve'
+                }
+            }
+        }
+    }
+  }
